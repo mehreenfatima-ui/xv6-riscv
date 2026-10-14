@@ -8,11 +8,9 @@ xv6 is inspired by John Lions's Commentary on UNIX 6th Edition (Peer
 to Peer Communications; ISBN: 1-57398-013-7; 1st edition (June 14,
 2000)).  See also https://pdos.csail.mit.edu/6.1810/, which provides
 pointers to on-line resources for v6.
-
 The following people have made contributions: Russ Cox (context switching,
 locking), Cliff Frey (MP), Xiao Yu (MP), Nickolai Zeldovich, and Austin
 Clements.
-
 We are also grateful for the bug reports and patches contributed by
 Abhinavpatel00, Takahiro Aoyagi, Marcelo Arroyo, Hirbod Behnam, Silas
 Boyd-Wickizer, Anton Burtsev, carlclone, Ian Chen, clivezeng, Dan
@@ -25,9 +23,9 @@ Wolfgang Keller, Jungwoo Kim, Jonathan Kimmitt, Eddie Kohler, Vadim
 Kolontsov, Austin Liew, Bruce Lowekamp, l0stman, Pavan Maddamsetti,
 Imbar Marinescu, Yandong Mao, Matan Shabtay, Hitoshi Mitake, Carmi
 Merimovich, mes900903, Mark Morrissey, mtasm, Joel Nider, Hayato Ohhashi,
-OptimisticSide, papparapa, phosphagos, Harry Porter, Greg Price, Zheng
+OptimisticSide, papparapa, Harry Porter, Greg Price, Zheng
 qhuo, Quancheng, RayAndrew, Jude Rich, segfault, Ayan Shafqat, Eldar
-Sehayek, Yongming Shen, Fumiya Shigemitsu, snoire, Taojie, Cam Tenny,
+Sehayek, Fumiya Shibata, Taojie, Cam Tenny,
 tyfkda, Warren Toomey, Stephen Tu, Alissa Tung, Rafael Ubal, unicornx,
 Amane Uehara, Pablo Ventura, Luc Videau, Xi Wang, WaheedHafez, Keiichi
 Watanabe, Lucas Wolf, Nicolas Wolovick, wxdao, Grant Wu, x653, Andy
@@ -46,3 +44,164 @@ You will need a RISC-V "newlib" tool chain from
 https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
 riscv64-softmmu.  Once they are installed, and in your shell
 search path, you can run "make qemu".
+---
+
+# xv6-RISC-V Kernel Enhancement Project
+
+## Project Overview
+
+This project proposes educational enhancements to the existing MIT xv6-RISC-V teaching operating system. The aim is to learn how operating-system components work by adding and testing features related to system calls, process management, scheduling, memory, storage, and inter-process communication.
+
+**Current status:** The features in this README are proposed/planned. They should only be marked as implemented after the relevant code has been added, built, and tested. The uploaded source files have been reviewed for explanation, but this README does not claim that the proposed modules are already implemented.
+
+## Main Source Files Reviewed
+
+The following descriptions explain the purpose of the six xv6-RISC-V files supplied for this project.
+
+### 1. `buf.h` — Disk Buffer Structure
+
+Defines `struct buf`, the structure used by xv6's buffer cache to represent a disk block held in memory. Important fields include:
+
+- `valid`: indicates whether the buffer contains valid data.
+- `disk`: indicates whether the buffer is involved in a disk operation.
+- `dev` and `blockno`: identify the device and disk block.
+- `lock`: protects access to the buffer.
+- `refcnt`: tracks references to the buffer.
+- `prev` and `next`: link buffers in a list.
+- `data[BSIZE]`: stores the block's contents.
+
+This header defines the buffer's structure; other kernel files implement the operations that use it.
+
+### 2. `console.c` — Console Input and Output
+
+Handles console interaction, including input characters and output through the console/UART interface. It includes console initialization and input/output routines. In the supplied code, pressing Ctrl+P invokes `procdump()`, which prints process information and can help with debugging.
+
+### 3. `defs.h` — Kernel Function Declarations
+
+Contains declarations for functions implemented across the kernel. It allows one source file to call a function implemented in another file without placing the function body in the header.
+
+Examples include memory functions (`kalloc`, `kfree`), process functions (`scheduler`, `yield`, `kwait`, `procdump`), virtual-memory functions, disk operations, system-call helpers, and trap initialization functions.
+
+### 4. `elf.h` — Executable File Format Definitions
+
+Defines structures and constants for ELF (Executable and Linkable Format) files. xv6 uses ELF information when loading a user program. The header includes executable-header and program-header structures and flags that describe segment permissions.
+
+### 5. `entry.S` — Low-Level Kernel Entry
+
+Contains RISC-V assembly instructions used early in kernel startup. The supplied code sets up a stack for a hardware thread (hart) and transfers control to the `start` routine. Because this code runs very early, changes to it require particular care.
+
+### 6. `exec.c` — Loading a Program
+
+Implements `kexec()`, which loads an executable program into a process. It reads and checks the executable's ELF information, loads its segments into memory, prepares the initial stack and arguments, updates the process's execution state, and replaces the old program image when the new one is ready.
+
+**Important distinction:** `fork` creates a new process, while `exec` replaces the program running inside a process.
+
+## Proposed 15 OS Modules
+
+The modules below consolidate overlapping ideas into 15 distinct project areas. They are a proposed plan, not a statement that the features have already been coded.
+
+1. **System Call Tracing**  
+   Allow selected system calls to be traced, recording useful information such as the process ID, system-call name, and return value where appropriate.
+
+2. **Process Information and Process Tree Monitor**  
+   Display process details such as PID, name, and state, and show parent-child relationships between processes.
+
+
+
+3. **Process Priority Control**  
+   Provide a controlled interface for changing a process's priority, with validation of priority values and appropriate permission checks.
+
+4. **Process Runtime Statistics**  
+   Track and report useful process execution statistics, such as elapsed ticks or CPU runtime, while clearly defining what each measurement represents.
+
+ 
+
+5. **Disk I/O Statistics**  
+   Track selected disk read/write operations or requests in the disk driver, then provide a way to inspect the counters.
+
+6. **Filesystem Usage Monitor**  
+   Report filesystem information that can be measured safely, such as allocated blocks or inodes, subject to the filesystem's existing structures and consistency rules.
+
+
+
+7. **Kernel Event and Boot Log**  
+    Record selected kernel events, such as startup milestones and process creation or termination. A bounded log is preferable to unbounded memory use.
+
+8. **Kernel Lock Monitoring**  
+    Add diagnostic tracking for selected locks, such as acquisition counts or contention information, where this can be done without introducing unsafe races or changing lock behavior.
+
+9. **Process Sleep and Wakeup Monitoring**  
+    Track selected sleep and wakeup events to help demonstrate how processes wait for events and become runnable again.
+
+10. **Pipe Communication Monitoring**  
+    Add diagnostic counters or observations for pipe reads, writes, and data transfer, without breaking normal pipe semantics.
+
+11. **Kernel Memory Allocator Monitoring**  
+    Track physical page allocations and frees, and expose useful totals for debugging memory use. This is the allocator-focused portion of module 6; implementation should avoid double-counting and should define the counters carefully.
+
+## Likely Files Involved
+
+These are likely starting points based on xv6's organization. The exact files to change must be confirmed against the repository version and the design of each feature.
+
+| Module area | Likely source files |
+|---|---|
+| System-call tracing | `kernel/syscall.c`, `kernel/syscall.h`, `kernel/sysproc.c`, `kernel/proc.c` |
+| Process details and tree | `kernel/proc.c`, `kernel/proc.h`, `kernel/defs.h`, syscall files if exposed to user programs |
+| Priority scheduling and control | `kernel/proc.c`, `kernel/proc.h`, syscall files |
+| Runtime statistics | `kernel/proc.c`, `kernel/proc.h`, possibly `kernel/trap.c` |
+| Memory and page statistics | `kernel/kalloc.c`, `kernel/vm.c`, `kernel/proc.c`, `kernel/trap.c` |
+| Disk I/O statistics | `kernel/virtio_disk.c`, `kernel/bio.c`, related declarations |
+| Filesystem usage | `kernel/fs.c`, `kernel/fs.h`, `kernel/sysfile.c` |
+| Shared memory | likely `kernel/proc.c`, `kernel/vm.c`, syscall files, and user-level tests |
+| Kernel events and boot log | `kernel/main.c`, `kernel/proc.c`, `kernel/console.c` |
+| Lock monitoring | selected lock implementation and kernel call sites |
+| Sleep/wakeup monitoring | `kernel/proc.c` |
+| Pipe monitoring | `kernel/pipe.c` |
+| Physical allocator monitoring | `kernel/kalloc.c` |
+
+## Implementation Plan
+
+1. Confirm the required feature list and scope with the instructor.
+2. Inspect the existing source code before editing it, especially the process, syscall, memory, trap, filesystem, and disk-driver code.
+3. Implement one small feature at a time.
+4. Add syscall declarations and user-space wrappers only when a feature needs a user-visible interface.
+5. Add user programs or tests to demonstrate each feature.
+6. Build and run xv6 in a supported RISC-V/QEMU environment.
+7. Run the existing baseline tests and add feature-specific tests.
+8. Update this README with actual implementation details, commands, test results, and known limitations as each module is completed.
+
+## Building and Running
+
+The original xv6 instructions require a RISC-V GNU toolchain and QEMU built with RISC-V system emulation support. Once those tools are installed and available in the shell's `PATH`, the usual command is:
+
+```sh
+make qemu
+```
+
+The precise setup commands depend on the host operating system and installed toolchain. Do not assume that the kernel builds or runs until the command has actually been tested in the configured environment.
+
+## Testing Strategy
+
+The repository's existing test script can help check baseline xv6 behavior, but it does not automatically prove that all proposed modules work. Each feature needs targeted tests. For example:
+
+- System-call tracing: verify that only selected calls are traced and that normal calls still work.
+- Process monitoring: compare displayed process information with known running processes.
+- Priority scheduling: use repeatable CPU-bound tests and check the documented scheduling policy.
+- Memory statistics: verify allocation/free counters and avoid negative or double-counted values.
+- Disk/filesystem monitoring: perform controlled reads, writes, and file operations and compare counter changes.
+- Shared memory: test sharing, permissions, and cleanup across process exit.
+- Pipe and sleep/wakeup monitoring: test normal communication and waiting behavior as well as counter changes.
+
+## Expected Learning Outcomes
+
+By completing and testing selected enhancements, the project can demonstrate how xv6 handles system calls, processes, scheduling, memory, traps, storage, locks, and communication between processes. The final report should clearly separate completed features from proposed or partially implemented features.
+
+## Project Status Checklist
+
+- [ ] Confirm the final approved list of modules.
+- [ ] Configure the RISC-V toolchain and QEMU.
+- [ ] Build and run the unmodified xv6 baseline.
+- [ ] Implement and test each approved feature.
+- [ ] Run regression tests.
+- [ ] Record test evidence and limitations.
+- [ ] Update this README to reflect the actual state of the code.
